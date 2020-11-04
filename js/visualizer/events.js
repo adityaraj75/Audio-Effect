@@ -2,15 +2,15 @@ function getElementCoordinates(element, event) {
     var c = getAbsolutePosition(element);
     c.x = event.x - c.x;
     c.y = event.y - c.y;
-    
+
     var position = c;
-    
+
     // This isn't the best, should abstract better.
     if (isNaN(c.y)) {
         var eventInfo = {event:event, element:element};
         position = getRelativeCoordinates(eventInfo);
-    }    
-    
+    }
+
     return position;
 }
 
@@ -93,7 +93,7 @@ function getRelativeCoordinates(eventInfo, opt_reference) {
 
   function configureSlider(name, value, min, max, handler) {
       // var controls = document.getElementById("controls");
-      // 
+      //
 
       var divName = name + "Slider";
 
@@ -110,7 +110,7 @@ function getRelativeCoordinates(eventInfo, opt_reference) {
 
     var divName = name + "Slider";
 
-    var sliderText = '<div id="' 
+    var sliderText = '<div id="'
      + divName
      + '" style="width:500px;"> <div id="'
      + name
