@@ -46,6 +46,23 @@ var audioInput = null,
     btcrBits = 16,   // between 1 and 16
     btcrNormFreq = 1; // between 0.0 and 1.0
 
+function Effect()
+{
+	this.controls = [];
+	this.input = null;
+	this.output = null;
+}
+
+Effect.prototype.addLinearControls = function( params, name, min, max, step, initial )
+{
+	//	[leftDelay.delayTime, rightDelay.delayTime], "Delay", 0.01, 2.0, 0.01, delayTime )
+}
+function EffectControl(type, min, max, initial, values)
+{
+
+}
+
+
 var rafID = null;
 var analyser1;
 var analyserView1;
@@ -56,7 +73,8 @@ var constraints =
   }
 };
 
-function convertToMono( input ) {
+function convertToMono( input )
+{
     var splitter = audioContext.createChannelSplitter(2);
     var merger = audioContext.createChannelMerger(2);
 
@@ -82,23 +100,85 @@ function updateAnalysers(time) {
     rafID = window.requestAnimationFrame( updateAnalysers );
 }
 
+// audio graph for ping pong effect : https://drive.google.com/file/d/1NEvvDpofNFh1HISDvB5q-vxvtRR7tPMn/view?usp=sharing
+
+function createPingPongDelay(context, isTrueStereo, delayTime, feedback)
+{
+    // effect object created: refer effect.js
+    var effect = new Effect();
+
+    // heads up for the upcoming methods:
+    // createChannelMerger: creates ChannelMergerNode (combines channel from multiple audio streams into single audio stream)
+    // createChannelSplitter: creates ChannelSplitterNode (used to access the individual channels of an audio stream and process them separately)
+    // createGain: creates GainNode which can be used to control the overall gain (or volume) of the audio graph
+    // createDelay: creates DelayNode which is used to delay the incoming audio signal by a certain amount of time
+    var merger = context.createChannelMerger(2);
+    var leftDelay = context.createDelay();
+    var rightDelay = context.createDelay();
+    var leftFeedback = audioContext.createGain();
+    var rightFeedback = audioContext.createGain();
+    var splitter = context.createChannelSplitter(2);
+
+    // Split the stereo signal
+    // connect params: destination, outputIndex, inputIndex
+    splitter.connect(leftDelay, 0);
+
+    // If the signal is dual copies of a mono signal, we don't want the right channel -
+    // it will just sound like a mono delay.  If it was a real stereo signal, we do want
+    // it to just mirror the channels.
+    if (isTrueStereo)
+        splitter.connect( rightDelay, 1 );
+
+    // delays both nodes by "delaytime"
+    leftDelay.delayTime.value = delayTime;
+    rightDelay.delayTime.value = delayTime;
+
+    // applies gain based on the values passed as "feedback"
+    leftFeedback.gain.value = feedback;
+    rightFeedback.gain.value = feedback;
+
+    // Connect the routing - left bounces to right, right bounces to left.
+    leftDelay.connect(leftFeedback);
+    leftFeedback.connect(rightDelay);
+
+    rightDelay.connect(rightFeedback);
+    rightFeedback.connect(leftDelay);
+
+    // Re-merge the two delay channels into stereo L/R
+    leftFeedback.connect(merger, 0, 0);
+    rightFeedback.connect(merger, 0, 1);
+
+    effect.addLinearControls( [leftDelay.delayTime, rightDelay.delayTime], "Delay", 0.01, 2.0, 0.01, delayTime );
+    effect.addLinearControls( [leftFeedback.gain, rightFeedback.gain], "Feedback", 0.01, 1.0, 0.01, feedback );
+
+    effect.input = splitter;
+    effect.output = merger;
+    return effect;
+}
+
+
 var lpInputFilter=null;
 
 // this is ONLY because we have massive feedback without filtering out
 // the top end in live speaker scenarios.
-function createLPInputFilter() {
+function createLPInputFilter()
+{
     lpInputFilter = audioContext.createBiquadFilter();
     lpInputFilter.frequency.value = 2048;
     return lpInputFilter;
 }
 
 
-function toggleMono() {
-    if (audioInput != realAudioInput) {
+function toggleMono()
+{
+    if (audioInput != realAudioInput)
+    {
         audioInput.disconnect();
         realAudioInput.disconnect();
         audioInput = realAudioInput;
-    } else {
+    }
+    else
+    {
         realAudioInput.disconnect();
         audioInput = convertToMono( realAudioInput );
     }
@@ -111,9 +191,10 @@ function toggleMono() {
 
 var useFeedbackReduction = true;
 
-function gotStream(stream) {
+function gotStream(stream)
+{
     // Create an AudioNode from the stream.
-//    realAudioInput = audioContext.createMediaStreamSource(stream);
+    // realAudioInput = audioContext.createMediaStreamSource(stream);
     var input = audioContext.createMediaStreamSource(stream);
 
 /*
@@ -126,11 +207,12 @@ function gotStream(stream) {
 */
     audioInput = convertToMono( input );
 
-    if (useFeedbackReduction) {
+    if (useFeedbackReduction)
+    {
         audioInput.connect( createLPInputFilter() );
         audioInput = lpInputFilter;
-
     }
+
     // create mix gain nodes
     outputMix = audioContext.createGain();
     dryGain = audioContext.createGain();
